@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:hive_flutter/hive_flutter.dart';
-import 'CacheService.dart';
-import 'LocationService.dart';
-import 'Weather.dart';
-import 'WeatherService.dart';
+import 'service/CacheService.dart';
+import 'service/LocationService.dart';
+import 'model/Weather.dart';
+import 'service/WeatherService.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ class MyApp extends StatelessWidget {
       title: 'Weather App',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: WeatherHomePage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -53,22 +55,17 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
     try {
       final position = await _locationService.getCurrentPosition();
-      final weather = await _weatherService.fetchWeatherByLocation(position.latitude, position.longitude);
+      final weather = await _weatherService.fetchWeatherByLocation(
+        position.latitude,
+        position.longitude,
+      );
       _cacheService.cacheWeather('current_location', weather.toJson());
-      setState(() {
-        _weather = weather;
-      });
+      setState(() => _weather = weather);
     } catch (e) {
-      // Try to get cached data
       final cached = _cacheService.getCachedWeather('current_location');
       if (cached != null) {
         setState(() {
-          _weather = Weather(
-            temperature: cached['temperature'],
-            description: cached['description'],
-            humidity: cached['humidity'],
-            windSpeed: cached['windSpeed'],
-          );
+          _weather = Weather.fromJson(cached);
         });
       } else {
         setState(() {
@@ -92,20 +89,12 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     try {
       final weather = await _weatherService.fetchWeatherByCity(city);
       _cacheService.cacheWeather(city, weather.toJson());
-      setState(() {
-        _weather = weather;
-      });
+      setState(() => _weather = weather);
     } catch (e) {
-      // Try cache
       final cached = _cacheService.getCachedWeather(city);
       if (cached != null) {
         setState(() {
-          _weather = Weather(
-            temperature: cached['temperature'],
-            description: cached['description'],
-            humidity: cached['humidity'],
-            windSpeed: cached['windSpeed'],
-          );
+          _weather = Weather.fromJson(cached);
         });
       } else {
         setState(() {
@@ -124,6 +113,7 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: _cityController,
@@ -139,34 +129,52 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
             SizedBox(height: 20),
 
             if (_loading)
-              CircularProgressIndicator()
+              Center(child: CircularProgressIndicator())
             else if (_error.isNotEmpty)
               Text(_error, style: TextStyle(color: Colors.red))
-            else if (_weather != null)
-                Expanded(
-                  child: ListView(
-                    children: [
-                      Text(
-                        'Temperature: ${_weather!.temperature}°C',
-                        style: TextStyle(fontSize: 24),
+            else
+              Expanded(
+                child: ListView(
+                  children: [
+                    Text(
+                      'Weather Information',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Text(
-                        'Condition: ${_weather!.description}',
-                        style: TextStyle(fontSize: 20),
-                      ),
-                      Text(
-                        'Humidity: ${_weather!.humidity}%',
-                        style: TextStyle(fontSize: 20),
-                      ),
-                      Text(
-                        'Wind Speed: ${_weather!.windSpeed} m/s',
-                        style: TextStyle(fontSize: 20),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Text('Search a city or allow location permission to get weather.'),
+                    ),
+                    SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Text('Temperature:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 10),
+                        Text(_weather != null ? '${_weather!.temperature}°C' : '—'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text('Condition:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 10),
+                        Text(_weather != null ? _weather!.description : '—'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text('Humidity:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 10),
+                        Text(_weather != null ? '${_weather!.humidity}%' : '—'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text('Wind Speed:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(width: 10),
+                        Text(_weather != null ? '${_weather!.windSpeed} m/s' : '—'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
